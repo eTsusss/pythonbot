@@ -1,6 +1,5 @@
 import re
 import os
-import asyncio
 from urllib.parse import urlparse
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackQueryHandler, ContextTypes, ConversationHandler
@@ -201,7 +200,7 @@ async def get_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("У вас нет доступа к этой команде.")
 
-async def main():
+def main():
     if not WEBHOOK_URL:
         raise RuntimeError("WEBHOOK_URL environment variable must be set for webhook operation")
 
@@ -223,15 +222,15 @@ async def main():
     parsed_url = urlparse(WEBHOOK_URL)
     webhook_path = parsed_url.path.lstrip("/") if parsed_url.path else ""
 
-    await app.bot.delete_webhook(drop_pending_updates=True)
-    await app.run_webhook(
+    app.run_webhook(
         listen="0.0.0.0",
         port=PORT,
         url_path=webhook_path,
         webhook_url=WEBHOOK_URL,
         secret_token=WEBHOOK_SECRET_TOKEN or None,
+        drop_pending_updates=True,
         allowed_updates=Update.ALL_TYPES,
     )
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
