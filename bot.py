@@ -1,5 +1,7 @@
 import re
 import os
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackQueryHandler, ContextTypes, ConversationHandler
 from openpyxl import Workbook, load_workbook
@@ -25,6 +27,25 @@ WELCOME_TEXT = (
 ASK_EMAIL_TEXT = "Пожалуйста, укажи свою почту для регистрации:"
 
 BROADCAST_TEXT, BROADCAST_PHOTO, BROADCAST_LINK = range(3)
+
+
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain")
+        self.end_headers()
+        self.wfile.write(b"ok")
+
+    def log_message(self, format, *args):
+        return
+
+
+def start_healthcheck_server():
+    port = int(os.environ.get("PORT", "10000"))
+    server = HTTPServer(("0.0.0.0", port), HealthCheckHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    return server
 
 def is_valid_email(email):
     return re.match(r"[^@]+@[^@]+\.[^@]+", email)
@@ -209,7 +230,11 @@ def main():
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    app.run_polling()
+    server = start_healthcheck_server()
+    try:
+        app.run_polling()
+    finally:
+        server.shutdown()
 
 if __name__ == "__main__":
     main()
