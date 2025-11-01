@@ -14,7 +14,10 @@ PDF_PATH = "src/Как пошить платье.pdf"
 EXCEL_FILE = "users.xlsx"
 ADMIN_USER_IDS = [1985211012]  # id администратора
 PORT = int(os.environ.get("PORT", "10000"))
-WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
+WEBHOOK_URL = os.environ.get(
+    "WEBHOOK_URL",
+    "https://pythonbot-3d3u.onrender.com/webhook",
+)
 WEBHOOK_SECRET_TOKEN = os.environ.get("WEBHOOK_SECRET_TOKEN")
 
 WELCOME_TEXT = (
