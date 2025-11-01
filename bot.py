@@ -1,6 +1,5 @@
 import re
 import os
-from urllib.parse import urlparse
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackQueryHandler, ContextTypes, ConversationHandler
 from openpyxl import Workbook, load_workbook
@@ -12,12 +11,6 @@ VIDEO_PATH = "src/guide.mp4"
 PDF_PATH = "src/Как пошить платье.pdf"     
 EXCEL_FILE = "users.xlsx"
 ADMIN_USER_IDS = [1985211012]  # id администратора
-PORT = int(os.environ.get("PORT", "10000"))
-WEBHOOK_URL = os.environ.get(
-    "WEBHOOK_URL",
-    "https://pythonbot-3d3u.onrender.com/webhook",
-)
-WEBHOOK_SECRET_TOKEN = os.environ.get("WEBHOOK_SECRET_TOKEN")
 
 WELCOME_TEXT = (
     "Привет, {username}!\n\n"
@@ -201,9 +194,6 @@ async def get_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("У вас нет доступа к этой команде.")
 
 def main():
-    if not WEBHOOK_URL:
-        raise RuntimeError("WEBHOOK_URL environment variable must be set for webhook operation")
-
     app = Application.builder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("getusers", get_users))
@@ -219,18 +209,7 @@ def main():
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    parsed_url = urlparse(WEBHOOK_URL)
-    webhook_path = parsed_url.path.lstrip("/") if parsed_url.path else ""
-
-    app.run_webhook(
-        listen="0.0.0.0",
-        port=PORT,
-        url_path=webhook_path,
-        webhook_url=WEBHOOK_URL,
-        secret_token=WEBHOOK_SECRET_TOKEN or None,
-        drop_pending_updates=True,
-        allowed_updates=Update.ALL_TYPES,
-    )
+    app.run_polling()
 
 if __name__ == "__main__":
     main()
