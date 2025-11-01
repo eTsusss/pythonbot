@@ -1,7 +1,7 @@
 import re
 import os
-import threading
-from http.server import BaseHTTPRequestHandler, HTTPServer
+import asyncio
+from urllib.parse import urlparse
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackQueryHandler, ContextTypes, ConversationHandler
 from openpyxl import Workbook, load_workbook
@@ -13,6 +13,9 @@ VIDEO_PATH = "src/guide.mp4"
 PDF_PATH = "src/Как пошить платье.pdf"     
 EXCEL_FILE = "users.xlsx"
 ADMIN_USER_IDS = [1985211012]  # id администратора
+PORT = int(os.environ.get("PORT", "10000"))
+WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
+WEBHOOK_SECRET_TOKEN = os.environ.get("WEBHOOK_SECRET_TOKEN")
 
 WELCOME_TEXT = (
     "Привет, {username}!\n\n"
@@ -27,25 +30,6 @@ WELCOME_TEXT = (
 ASK_EMAIL_TEXT = "Пожалуйста, укажи свою почту для регистрации:"
 
 BROADCAST_TEXT, BROADCAST_PHOTO, BROADCAST_LINK = range(3)
-
-
-class HealthCheckHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.send_header("Content-Type", "text/plain")
-        self.end_headers()
-        self.wfile.write(b"ok")
-
-    def log_message(self, format, *args):
-        return
-
-
-def start_healthcheck_server():
-    port = int(os.environ.get("PORT", "10000"))
-    server = HTTPServer(("0.0.0.0", port), HealthCheckHandler)
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    return server
 
 def is_valid_email(email):
     return re.match(r"[^@]+@[^@]+\.[^@]+", email)
@@ -214,7 +198,10 @@ async def get_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("У вас нет доступа к этой команде.")
 
-def main():
+async def main():
+    if not WEBHOOK_URL:
+        raise RuntimeError("WEBHOOK_URL environment variable must be set for webhook operation")
+
     app = Application.builder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("getusers", get_users))
@@ -230,11 +217,18 @@ def main():
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    server = start_healthcheck_server()
-    try:
-        app.run_polling()
-    finally:
-        server.shutdown()
+    parsed_url = urlparse(WEBHOOK_URL)
+    webhook_path = parsed_url.path.lstrip("/") if parsed_url.path else ""
+
+    await app.bot.delete_webhook(drop_pending_updates=True)
+    await app.run_webhook(
+        listen="0.0.0.0",
+        port=PORT,
+        url_path=webhook_path,
+        webhook_url=WEBHOOK_URL,
+        secret_token=WEBHOOK_SECRET_TOKEN or None,
+        allowed_updates=Update.ALL_TYPES,
+    )
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
